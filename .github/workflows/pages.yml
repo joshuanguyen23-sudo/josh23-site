@@ -1,0 +1,33 @@
+name: Publish site to gh-pages
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build static site (decode base64 assets)
+        run: |
+          set -e
+          mkdir -p out/assets
+          cp site/index.html out/index.html
+          touch out/.nojekyll
+          cat bundles/*.txt | while read -r n data; do
+            [ -z "$n" ] && continue
+            if [ "$n" = "favicon.ico" ]; then echo "$data" | base64 -d > out/favicon.ico; else echo "$data" | base64 -d > "out/assets/$n"; fi
+          done
+          ls -la out out/assets
+      - name: Push to gh-pages
+        run: |
+          set -e
+          cd out
+          git init -q -b gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Publish site from ${GITHUB_SHA}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" gh-pages
